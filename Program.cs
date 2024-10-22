@@ -40,6 +40,10 @@ async Task call(
                 return false;
             }
             var result = await Util.HeartBeat(port, heartbeatTimespan);
+            if (result == false)
+            {
+                _ = Util.UnregisteredSocketServer(env, serverName, port);
+            }
             return result;
         });
     }
@@ -108,6 +112,10 @@ async Task call(
                         return false;
                     }
                     var result = await Util.HeartBeat(port, heartbeatTimespan);
+                    if (result == false)
+                    {
+                        _ = Util.UnregisteredSocketServer(env, serverName, port);
+                    }
                     return result;
                 });
                 if (validPort != null)
