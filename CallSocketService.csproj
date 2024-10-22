@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+	  <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Cangjie.TypeSharp" Version="1.0.14" />
+    <PackageReference Include="TidyConsole" Version="1.0.5" />
+    <PackageReference Include="TidyHPC" Version="1.0.10" />
+    <PackageReference Include="TidySocket" Version="1.0.30" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Readme.md">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>
