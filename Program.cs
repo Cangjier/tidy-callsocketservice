@@ -90,7 +90,7 @@ async Task call(
         var serverArgs = Util.TryEvalString(env.GetStringFromConfig([serverName, "Arguments"], ""));
         var serverWorkingDirectory = Util.TryEvalString(env.GetStringFromConfig([serverName, "WorkingDirectory"], ""));
         var serverInstall = Util.TryEvalString(env.GetStringFromConfig([serverName, "Install"], ""));
-        Logger.InfoParameters(new Json()
+        Logger.InfoParameters(new Json(Json.NewObject())
         {
             ["serverPath"] = serverPath,
             ["serverArgs"] = serverArgs,
