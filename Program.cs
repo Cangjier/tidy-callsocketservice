@@ -104,14 +104,13 @@ async Task call(
         if (serverInstall.Length > 0)
         {
             Logger.Info($"Install Server:{serverInstall}");
-            Consoler.Theme theme = Consoler.Theme.NextTheme;
             await Consoles.ExecuteCommand(Path.GetDirectoryName(Environment.ProcessPath) ?? "", serverInstall, new Events(async line =>
             {
-                Consoler.WriteLine(line.Content, theme);
+                Consoler.WriteLine(line.Content);
                 await Task.CompletedTask;
             }, async () =>
             {
-                Consoler.WriteLine("Install Server Finished", theme);
+                Consoler.WriteLine("Install Server Finished");
                 await Task.CompletedTask;
             }));
             Logger.Info($"Install Server Finished");
