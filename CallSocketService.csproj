@@ -9,10 +9,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Cangjie.TypeSharp" Version="1.0.14" />
+    <PackageReference Include="Cangjie.TypeSharp" Version="1.0.18" />
     <PackageReference Include="TidyConsole" Version="1.0.5" />
-    <PackageReference Include="TidyHPC" Version="1.0.10" />
-    <PackageReference Include="TidySocket" Version="1.0.30" />
+    <PackageReference Include="TidySocket" Version="1.0.31" />
   </ItemGroup>
 
   <ItemGroup>

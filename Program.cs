@@ -2,6 +2,7 @@
 using TidyConsole;
 using TidyHPC.Extensions;
 using TidyHPC.LiteJson;
+using TidyHPC.Locks;
 using TidyHPC.Loggers;
 using TidyHPC.Routers;
 using TidyHPC.Routers.Args;
@@ -14,24 +15,36 @@ async Task call(
     [ArgsAliases("-i", "--input")] string inputPath,
     [ArgsAliases("-o", "--output")] string outputPath,
     [ArgsAliases("-l", "--logger")] string? loggerPath,
-    [ArgsAliases("-p", "--port")] string? port = null,
-    [ArgsAliases("-ht", "--heartbeat-timeout")] string? heartbeatTimeout = null,
-    [ArgsAliases("-it","--ini-timeout")]string? iniTimeout=null)
+    [ArgsAliases("-p", "--port")] string? port = null)
 {
     if (loggerPath != null)
     {
         Logger.FilePath = loggerPath;
     }
+    var env = new ClientApplication();
     var input = Json.Load(inputPath);
     var output = Json.NewObject();
-    var heartbeatTimespan = heartbeatTimeout == null ? TimeSpan.FromSeconds(3) : TimeSpan.FromSeconds(int.Parse(heartbeatTimeout));
-    var iniTimespan = iniTimeout == null ? TimeSpan.FromMinutes(30) : TimeSpan.FromSeconds(int.Parse(iniTimeout));
-    var env = new ClientApplication();
+
+    var heartbeatTimeout = TimeSpan.FromSeconds(3);
+    var initialTimeout = TimeSpan.FromMinutes(30);
+    try
+    {
+        heartbeatTimeout = TimeSpan.Parse(env.GetStringFromConfig(["HeartbeatTimeout"], "00:00:03"));
+        initialTimeout = TimeSpan.Parse(env.GetStringFromConfig(["InitialTimeout"], "00:30:00"));
+    }
+    catch
+    {
+
+    }
+
     var socketServers = await Util.GetRegisteredSocketServers(env, serverName);
     Logger.InfoParameter("Socket Servers", socketServers.Join(","));
     string? validPort = port;
-    if (validPort == null)
+    int heartbeatTryCount = 3;
+    int heartbeatTryIndex = 0;
+    while (validPort == null)
     {
+        Lock<List<int>> invalidPorts = new([]);
         validPort = await socketServers.FindAsync(async x =>
         {
             if (!int.TryParse(x, out int port))
@@ -39,13 +52,31 @@ async Task call(
                 Logger.Error($"Port is not a number:{x}");
                 return false;
             }
-            var result = await Util.HeartBeat(port, heartbeatTimespan);
+            var result = await Util.HeartBeat(port, heartbeatTimeout);
             if (result == false)
             {
-                _ = Util.UnregisteredSocketServer(env, serverName, port);
+                invalidPorts.Process(self => self.Add(port));
             }
             return result;
         });
+        if(validPort != null)
+        {
+            break;
+        }
+        else
+        {
+            if (heartbeatTryIndex >= heartbeatTryCount)
+            {
+                foreach (var invalidPort in invalidPorts.Value)
+                {
+                    _ = Util.UnregisteredSocketServer(env, serverName, invalidPort);
+                }
+                break;
+            }
+            heartbeatTryIndex++;
+            socketServers = await Util.GetRegisteredSocketServers(env, serverName);
+            Logger.InfoParameter("Socket Servers", socketServers.Join(","));
+        }
     }
     if (validPort == null)
     {
@@ -90,7 +121,7 @@ async Task call(
         using CancellationTokenSource cts = new();
         _ = Task.Run(async () =>
         {
-            await Task.Delay(iniTimespan);
+            await Task.Delay(initialTimeout);
             cts.Cancel();
         });
         while (true)
@@ -111,7 +142,7 @@ async Task call(
                         Logger.Error($"Port is not a number:{x}");
                         return false;
                     }
-                    var result = await Util.HeartBeat(port, heartbeatTimespan);
+                    var result = await Util.HeartBeat(port, heartbeatTimeout);
                     if (result == false)
                     {
                         _ = Util.UnregisteredSocketServer(env, serverName, port);
@@ -134,13 +165,30 @@ async Task call(
         throw new Exception("No valid port");
     }
     env.Start(int.Parse(validPort));
-    var result = await Util.RemoteEval(env, interfaceName, File.ReadAllText(inputPath, Util.UTF8), TimeSpan.FromMinutes(5));
-    if (result.Target.IsNull)
+    var mainTask = Task.Run(async () =>
     {
-        throw new Exception("RemoteEval Result is null");
-    }
-    Console.WriteLine(result.ToString());
-    File.WriteAllText(outputPath, result.data.ToString(), Util.UTF8);
+        var result = await Util.RemoteEval(env, interfaceName, File.ReadAllText(inputPath, Util.UTF8), TimeSpan.FromDays(1));
+        if (result.Target.IsNull)
+        {
+            throw new Exception("RemoteEval Result is null");
+        }
+        Console.WriteLine(result.ToString());
+        File.WriteAllText(outputPath, result.data.ToString(), Util.UTF8);
+    });
+    var heartbeatTask = Task.Run(async () =>
+    {
+        while (true)
+        {
+            await Task.Delay(heartbeatTimeout);
+            var result = await Util.HeartBeat(int.Parse(validPort), heartbeatTimeout);
+            if (result == false)
+            {
+                Logger.Error("Do CAD Task Heartbeat Timeout");
+                throw new Exception("Do CAD Task Heartbeat Timeout");
+            }
+        }
+    });
+    await Task.WhenAny(mainTask, heartbeatTask);
 }
 
 ArgsRouter argsRouter = new();
